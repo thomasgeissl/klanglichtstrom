@@ -5,6 +5,8 @@
 
 #define OSCOUTPORT 9001
 #define OSCINPORT 9002
+#define MIDIOUTCHANNEL 1
+#define MIDIOUTCONTROL 1
 
 #define OSCHOST "192.168.2.255"
 

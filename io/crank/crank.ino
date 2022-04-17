@@ -2,6 +2,8 @@
 //https://github.com/adafruit/Adafruit_NeoPixel
 //https://github.com/thomasgeissl/Parameter
 
+#include <MIDI.h>
+
 #include <Adafruit_NeoPixel.h>
 //#include <OSCMessage.h>
 #include <NativeEthernet.h>
@@ -25,7 +27,6 @@ EthernetUDP Udp;
 
 
 void sendOSCMessage() {
-  Serial.println("sending osc message");
   OSCMessage msg("/kls/io/crank");
   msg.add(_value.get());
 
@@ -33,9 +34,10 @@ void sendOSCMessage() {
   msg.send(Udp);
   Udp.endPacket();
   msg.empty();
-  Serial.println("sending osc message::done");
 }
-
+void sendMIDIMessage() {
+  usbMIDI.sendControlChange(MIDIOUTCONTROL, _value.get(), MIDIOUTCOHANNEL);
+}
 void setup() {
   Serial.begin(115200);
 
@@ -48,6 +50,7 @@ void setup() {
   _value.setup("value", 0, 0, 127);
   _value.addListener([&](String name, int value) {
     sendOSCMessage();
+    sendMIDIMessage();
     Serial.println(name + " changed, new value: " + String(value));
 
     strip.setPixelColor(0, strip.Color(map(value, _value.getMin(), _value.getMax(), 0, 255), 0, 0));
