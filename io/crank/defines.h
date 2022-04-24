@@ -2,7 +2,7 @@
 #define NEOPIXELPIN 7
 #define DIMMERPIN 8
 #define NUMBEROFPIXELS 24
-
+#define PIXELSOFFSET 0
 
 #define OSCOUTPORT 9010
 #define OSCINPORT 9002
