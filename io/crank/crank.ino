@@ -5,25 +5,27 @@
 #include <MIDI.h>
 
 #include <Adafruit_NeoPixel.h>
-//#include <OSCMessage.h>
 #include <NativeEthernet.h>
 #include <NativeEthernetUdp.h>
-//#include <SPI.h>
 #include <OSCMessage.h>
 
 #include <Parameter.h>
 #include "./defines.h"
 
 ParameterGroup _parameters;
+Parameter<bool> _active;
 Parameter<int> _value;
+Parameter<int> _brightness;
+Parameter<int> _incrementor;
+Parameter<int> _decrementor;
+Parameter<int> _decrementInterval;
 
 bool lastReedValue = false;
 unsigned long _lastTimestamp = 0;
 
-Adafruit_NeoPixel strip(1, NEOPIXELPIN, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel strip(NUMBEROFPIXELS, NEOPIXELPIN, NEO_RGBW + NEO_KHZ800);
 
 EthernetUDP Udp;
-
 
 
 void sendOSCMessage() {
@@ -36,28 +38,53 @@ void sendOSCMessage() {
   msg.empty();
 }
 void sendMIDIMessage() {
-  usbMIDI.sendControlChange(MIDIOUTCONTROL, _value.get(), MIDIOUTCOHANNEL);
+  usbMIDI.sendControlChange(MIDIOUTCONTROL, _value.get(), MIDIOUTCHANNEL);
+}
+
+void setLeds() {
+  int maxIndex = map(_value.get(), _value.getMin(), _value.getMax(), 0, NUMBEROFPIXELS);
+  auto color = strip.Color(0, 0, 0, 255);
+  for (auto i = 0; i < maxIndex; i++) {
+    strip.setPixelColor(i, 0, 0, 0, 255);
+  }
+  for (auto i = maxIndex; i < NUMBEROFPIXELS; i++) {
+    strip.setPixelColor(i, 0, 0, 0, 0);
+  }
+  strip.show();
 }
 void setup() {
   Serial.begin(115200);
-
   pinMode(REEDPIN, INPUT);
+
+  _active.setup("active", true);
+  _value.setup("value", 0, 0, 127);
+  _incrementor.setup("incrementor", 4, 1, 16);
+  _decrementor.setup("decrementor", 8, 1, 16);
+  _decrementInterval.setup("decrementInterval", 2000, 100, 10000);
+  _brightness.setup("brightness", 100, 0, 100);
+
+  _value.addListener([&](String name, int value) {
+    Serial.println(name + " changed, new value: " + String(value));
+    sendOSCMessage();
+    sendMIDIMessage();
+    setLeds();
+  });
+
+  _brightness.addListener([&](String name, int value) {
+    Serial.println(name + " changed, new value: " + String(value));
+    strip.setBrightness(value);
+  });
+
+  _parameters.add(_active);
+  _parameters.add(_value);
+  _parameters.add(_incrementor);
+  _parameters.add(_decrementor);
+  _parameters.add(_decrementInterval);
+  _parameters.add(_brightness);
 
   strip.begin();
   strip.show();
-  strip.setBrightness(50);
-
-  _value.setup("value", 0, 0, 127);
-  _value.addListener([&](String name, int value) {
-    sendOSCMessage();
-    sendMIDIMessage();
-    Serial.println(name + " changed, new value: " + String(value));
-
-    strip.setPixelColor(0, strip.Color(map(value, _value.getMin(), _value.getMax(), 0, 255), 0, 0));
-    strip.show();
-  });
-  _parameters.add(_value);
-
+  strip.setBrightness(_brightness);
 
   Serial.println("Initialize Ethernet with DHCP:");
   if (Ethernet.begin(mac) == 0) {
@@ -87,16 +114,18 @@ void setup() {
 }
 
 void loop() {
-  auto reedValue = digitalRead(REEDPIN);
-  auto timestamp = millis();
+  if (_active) {
+    auto reedValue = digitalRead(REEDPIN);
+    auto timestamp = millis();
 
-  if (reedValue && reedValue != lastReedValue) {
-    _value = _value + 1;
+    if (reedValue && reedValue != lastReedValue) {
+      _value = _value + _incrementor;
+    }
+    if (timestamp - _lastTimestamp > _decrementInterval) {
+      _value = _value - _decrementor;
+      _lastTimestamp = timestamp;
+    }
+    lastReedValue = reedValue;
+    delay(2);
   }
-  if (timestamp - _lastTimestamp > 2000) {
-    _value = _value - 1;
-    _lastTimestamp = timestamp;
-  }
-  lastReedValue = reedValue;
-  delay(2);
 }
