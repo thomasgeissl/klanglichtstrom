@@ -98,12 +98,12 @@ void setup() {
   _value.setup("value", 0, 0, 127);
   _incrementor.setup("incrementor", 4, 1, 16);
   _decrementor.setup("decrementor", 8, 1, 16);
-  _decrementInterval.setup("decrementInterval", 2000, 100, 10000);
-  _brightness.setup("brightness", 100, 0, 100);
+  _decrementInterval.setup("decrementInterval", 1000, 100, 10000);
+  _brightness.setup("brightness", 50, 0, 100);
 
   _value.addListener([&](String name, int value) {
     Serial.println(name + " changed, new value: " + String(value));
-    //    sendOSCMessage();
+    sendOSCMessage();
     sendMIDIMessage();
     setLeds();
   });
@@ -124,29 +124,28 @@ void setup() {
   strip.show();
   strip.setBrightness(_brightness);
 
-  //  Serial.println("Initialize Ethernet with DHCP:");
-  //  if (Ethernet.begin(mac) == 0) {
-  //    Serial.println("Failed to configure Ethernet using DHCP");
-  //    // Check for Ethernet hardware present
-  //    if (Ethernet.hardwareStatus() == EthernetNoHardware) {
-  //      Serial.println("Ethernet shield was not found.  Sorry, can't run without hardware. :(");
-  //      while (true) {
-  //        delay(1); // do nothing, no point running without Ethernet hardware
-  //      }
-  //    }
-  //    if (Ethernet.linkStatus() == LinkOFF) {
-  //      Serial.println("Ethernet cable is not connected.");
-  //    }
-  //    // try to congifure using IP address instead of DHCP:
-  //    Ethernet.begin(mac, ip);
-  //    Serial.println(Ethernet.localIP());
-  //
-  //  } else {
-  //    Serial.print("  DHCP assigned IP ");
-  //    Serial.println(Ethernet.localIP());
-  //  }
-  //
-  //  Udp.begin(OSCINPORT);
+  Serial.println("Initialize Ethernet with DHCP:");
+  if (Ethernet.begin(mac) == 0) {
+    Serial.println("Failed to configure Ethernet using DHCP");
+    // Check for Ethernet hardware present
+    if (Ethernet.hardwareStatus() == EthernetNoHardware) {
+      Serial.println("Ethernet shield was not found.  Sorry, can't run without hardware. :(");
+      while (true) {
+        delay(1); // do nothing, no point running without Ethernet hardware
+      }
+    }
+    if (Ethernet.linkStatus() == LinkOFF) {
+      Serial.println("Ethernet cable is not connected.");
+    }
+    // try to congifure using IP address instead of DHCP:
+    Ethernet.begin(mac, ip);
+    Serial.println(Ethernet.localIP());
+
+  } else {
+    Serial.print("  DHCP assigned IP ");
+    Serial.println(Ethernet.localIP());
+  }
+  Udp.begin(OSCINPORT);
 
   Serial.println("setup - done");
 }
@@ -159,10 +158,13 @@ void loop() {
 
     if (reedValue && reedValue != lastReedValue) {
       _value = _value + _incrementor;
+      _lastTimestamp = timestamp;
     }
     if (timestamp - _lastTimestamp > _decrementInterval) {
-      _value = _value - _decrementor;
-      _lastTimestamp = timestamp;
+      if (_value > 0) {
+        _value = _value - _decrementor;
+      }
+
     }
     lastReedValue = reedValue;
     delay(2);
